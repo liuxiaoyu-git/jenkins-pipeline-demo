@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: tinyapp-pipeline
+  name: tinyapp-rollback
+spec:
+  runPolicy: Serial
+  source:
+    type: None
+  strategy:
+    jenkinsPipelineStrategy:
+      env:
+      jenkinsfile: |-
+        pipeline {
+          agent any
+          stages {
+            stage('Rollback') {
+              steps {
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject() {
+                      openshift.patch("dc/tinyapp", '\'{"spec": {"template": {"spec": {"containers": [{"name": "tinyapp", "image": "quay.io/siamaksade/tinyapp:v1"}]}}}}\'')
+                      openshift.selector("dc", "tinyapp").rollout().latest();
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+    type: JenkinsPipeline

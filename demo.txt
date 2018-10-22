@@ -1,0 +1,15 @@
+# DEPLOY 
+oc new-project demo
+oc create -f https://raw.githubusercontent.com/siamaksade/tinyapp/master/openshift/tinyapp.yml
+oc rollout latest tinyapp
+
+oc create -f deploy-v2-pipeline.yml
+
+
+# Recreate Strategy
+
+- Watch endpoint
+- Run deploy-pipeline
+
+oc rollout undo dc tinyapp
+
