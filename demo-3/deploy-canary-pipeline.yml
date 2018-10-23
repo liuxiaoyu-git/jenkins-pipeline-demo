@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: BuildConfig
+metadata:
+  annotations:
+    pipeline.alpha.openshift.io/uses: '[{"name": "jenkins", "namespace": "", "kind": "DeploymentConfig"}]'
+  labels:
+    app: tinyapp-pipeline
+  name: tinyapp-deploy
+spec:
+  runPolicy: Serial
+  source:
+    type: None
+  strategy:
+    jenkinsPipelineStrategy:
+      env:
+      jenkinsfile: |-
+        def activeSvc, canarySvc, suffix
+
+        pipeline {
+          agent any
+          stages {
+            stage('Deploy Canary 10%') {
+              steps {
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject() {
+                      activeSvc = openshift.selector("route", "tinyapp").object().spec.to.name
+                      suffix = (activeSvc ==~ /tinyapp-(\d+)/) ? (activeSvc.replaceAll(/tinyapp-(\d+)/, '$1') as int) + 1 : "1"
+                      canarySvc = "tinyapp-${suffix}"
+
+                      openshift.newApp("--template=tinyapp", "-p", "APP_NAME=${canarySvc}", "-p", "IMAGE_TAG=v2")
+                      openshift.selector("dc", "${canarySvc}").rollout().latest();
+                      openshift.selector("dc", "${canarySvc}").rollout().status();
+                      openshift.set("route-backends", "tinyapp", "${activeSvc}=90%", "${canarySvc}=10%")
+                    }
+                  }
+                }
+              }
+            }
+            stage('Grow Canary 50%') {
+              steps {
+                timeout(time:15, unit:'MINUTES') {
+                    input message: "Send 50% of live traffic to new release?", ok: "Approve"
+                }
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject() {
+                      openshift.set("route-backends", "tinyapp", "${activeSvc}=50%", "${canarySvc}=50%")
+                    }
+                  }
+                }
+              }
+            }
+            stage('Rollout 100%') {
+              steps {
+                timeout(time:15, unit:'MINUTES') {
+                    input message: "Rollout the new release?", ok: "Approve"
+                }
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject() {
+                      openshift.set("route-backends", "tinyapp", "${canarySvc}=100%")
+                    }
+                  }
+                }
+              }
+            }
+            stage('Tear down old release') {
+              steps {
+                timeout(time:15, unit:'MINUTES') {
+                    input message: "Tear down old release?", ok: "Approve"
+                }
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject() {
+                      openshift.selector(["dc/${activeSvc}", "svc/${activeSvc}", "route/${canarySvc}"]).delete()
+                    }
+                  }
+                }
+              }
+            }
+          }
+          post { 
+            aborted {
+              script {
+                openshift.withCluster() {
+                  openshift.withProject() {
+                    echo "Rolling back to current release ${activeSvc} and deleting the canary"
+                    openshift.set("route-backends", "tinyapp", "${activeSvc}=100%")
+                    openshift.selector(["dc/${canarySvc}", "svc/${canarySvc}", "route/${canarySvc}"]).delete()
+                  }
+                }
+              }
+            }
+            failure { 
+              script {
+                openshift.withCluster() {
+                  openshift.withProject() {
+                    echo "Rolling back to current release ${activeSvc} and deleting the canary"
+                    openshift.set("route-backends", "catalog", "${activeSvc}=100%")
+                    openshift.selector(["dc/${canarySvc}", "svc/${canarySvc}", "route/${canarySvc}"]).delete()
+                  }
+                }
+              }
+            }
+          }
+        }
+    type: JenkinsPipeline

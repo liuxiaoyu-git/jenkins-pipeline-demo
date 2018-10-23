@@ -1,17 +1,26 @@
-# DEMO 1
+#############
+#   DEMO 1  #
+#############
 
 oc new-project demo-1
 oc new-app jenkins-ephemeral -l app=jenkins -p DISABLE_ADMINISTRATIVE_MONITORS=true
+oc set resources dc/jenkins --limits=cpu=2,memory=2Gi --requests=cpu=200m,memory=512Mi
 oc create -f demo-1/tinyapp-recreate.yml
 oc rollout latest tinyapp
 oc create -f demo-1/deploy-rolling-pipeline.yml
 
 ./watch-emndpoint.sh http://tinyapp-demo.apps.devopsworld.openshiftworkshop.com/version
 
-# DEMO 2
+# Rollback
+oc rollout undo dc tinyapp
+
+#############
+#   DEMO 2  #
+#############
 
 oc new-project demo-2
 oc new-app jenkins-ephemeral -l app=jenkins -p DISABLE_ADMINISTRATIVE_MONITORS=true
+oc set resources dc/jenkins --limits=cpu=2,memory=2Gi --requests=cpu=200m,memory=512Mi
 oc create -f demo-2/tinyapp-bluegreen.yml
 oc rollout latest tinyapp-blue
 oc rollout latest tinyapp-green
@@ -24,8 +33,21 @@ curl http://tinyapp-green-demo-2.apps.devopsworld.openshiftworkshop.com/version
 curl http://tinyapp-blue-demo-2.apps.devopsworld.openshiftworkshop.com/version
 
 
-# Rollback
-oc rollout undo dc tinyapp
+#############
+#   DEMO 3  #
+#############
+
+oc new-project demo-3
+oc new-app jenkins-ephemeral -l app=jenkins -p DISABLE_ADMINISTRATIVE_MONITORS=true
+oc set resources dc/jenkins --limits=cpu=2,memory=2Gi --requests=cpu=200m,memory=512Mi
+oc create -f demo-3/tinyapp-template.yml
+oc new-app tinyapp
+oc rollout latest tinyapp
+
+./watch-emndpoint.sh http://tinyapp-demo-3.apps.devopsworld.openshiftworkshop.com/version
+
+
+
 
 
 
