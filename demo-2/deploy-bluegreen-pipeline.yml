@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: BuildConfig
+metadata:
+  annotations:
+    pipeline.alpha.openshift.io/uses: '[{"name": "jenkins", "namespace": "", "kind": "DeploymentConfig"}]'
+  labels:
+    app: tinyapp-pipeline
+  name: tinyapp-deploy
+spec:
+  runPolicy: Serial
+  source:
+    type: None
+  strategy:
+    jenkinsPipelineStrategy:
+      env:
+      jenkinsfile: |-
+        def inactive
+
+        pipeline {
+          agent any
+          stages {
+            stage('Deploy (inactive) TinyApp') {
+              steps {
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject() {
+                      def route = openshift.selector("route", "tinyapp").object()
+                      def backends = []
+                      backends.add(route.spec.to)
+                      backends.addAll(route.spec.alternateBackends)
+                      def svc = backends.find {it.weight == 100}
+                      inactive = svc.name == "tinyapp-green" ? "blue" : "green"
+
+                      openshift.patch("dc/tinyapp-${inactive}", '\'{"spec": {"template": {"spec": {"containers": [{"name": "tinyapp", "image": "quay.io/siamaksade/tinyapp:v2"}]}}}}\'')
+                      openshift.selector("dc", "tinyapp-${inactive}").rollout().latest();
+                    }
+                  }
+                }
+              }
+            }
+            stage('Approve Go Live') {
+              steps {
+                timeout(time:20, unit:'MINUTES') {
+                    input message: "Go Live?", ok: "Go Live"
+                }
+              }
+            }
+            stage('Go Live') {
+              steps {
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject() {
+                      openshift.set("route-backends", "tinyapp", "--adjust", "tinyapp-${inactive}=100%")
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+    type: JenkinsPipeline

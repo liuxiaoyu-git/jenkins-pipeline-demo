@@ -1,15 +1,31 @@
-# DEPLOY 
-oc new-project demo
-oc create -f https://raw.githubusercontent.com/siamaksade/tinyapp/master/openshift/tinyapp.yml
+# DEMO 1
+
+oc new-project demo-1
+oc new-app jenkins-ephemeral -l app=jenkins -p DISABLE_ADMINISTRATIVE_MONITORS=true
+oc create -f demo-1/tinyapp-recreate.yml
 oc rollout latest tinyapp
+oc create -f demo-1/deploy-rolling-pipeline.yml
 
-oc create -f deploy-v2-pipeline.yml
+./watch-emndpoint.sh http://tinyapp-demo.apps.devopsworld.openshiftworkshop.com/version
+
+# DEMO 2
+
+oc new-project demo-2
+oc new-app jenkins-ephemeral -l app=jenkins -p DISABLE_ADMINISTRATIVE_MONITORS=true
+oc create -f demo-2/tinyapp-bluegreen.yml
+oc rollout latest tinyapp-blue
+oc rollout latest tinyapp-green
+oc create -f demo-2/deploy-bluegreen-pipeline.yml
 
 
-# Recreate Strategy
+./watch-emndpoint.sh http://tinyapp-demo-2.apps.devopsworld.openshiftworkshop.com/version
 
-- Watch endpoint
-- Run deploy-pipeline
+curl http://tinyapp-green-demo-2.apps.devopsworld.openshiftworkshop.com/version
+curl http://tinyapp-blue-demo-2.apps.devopsworld.openshiftworkshop.com/version
 
+
+# Rollback
 oc rollout undo dc tinyapp
+
+
 

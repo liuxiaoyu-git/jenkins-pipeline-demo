@@ -1,7 +1,8 @@
 #!/bin/bash
 
 
-URL=http://tinyapp-demo.apps.devopsworld.openshiftworkshop.com/version
+# URL=http://tinyapp-demo.apps.devopsworld.openshiftworkshop.com/version
+URL=$1
 
 function call_endpoint() {
   HTTP_RESPONSE=$(curl --silent --write-out "HTTPSTATUS:%{http_code}" $URL)
