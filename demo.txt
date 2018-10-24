@@ -41,13 +41,32 @@ oc new-project demo-3
 oc new-app jenkins-ephemeral -l app=jenkins -p DISABLE_ADMINISTRATIVE_MONITORS=true
 oc set resources dc/jenkins --limits=cpu=2,memory=2Gi --requests=cpu=200m,memory=512Mi
 oc create -f demo-3/tinyapp-template.yml
-oc new-app tinyapp
+oc new-app --template=tinyapp
 oc rollout latest tinyapp
 
 ./watch-emndpoint.sh http://tinyapp-demo-3.apps.devopsworld.openshiftworkshop.com/version
 
 
+#############
+#   DEMO 4  #
+#############
+
+oc new-project demo-4
+oc delete limitrange demo-4-core-resource-limits
+oc new-app jenkins-ephemeral -l app=jenkins -p DISABLE_ADMINISTRATIVE_MONITORS=true
+oc set resources dc/jenkins --limits=cpu=2,memory=2Gi --requests=cpu=200m,memory=512Mi
+oc adm policy add-scc-to-user anyuid -z default -n demo-4
+oc adm policy add-scc-to-user privileged -z default -n demo-4
+oc create -f demo-4/tinyapp.yml
+oc rollout latest tinyapp-v1
+oc rollout latest tinyapp-v2
+oc create -f demo-4/istio-rules-1.yml
+
+./watch-endpoint.sh http://istio-ingressgateway-istio-system.apps.devopsworld.openshiftworkshop.com/tinyapp/version
 
 
+oc get pods 
+oc logs -c tinyapp -f pod1
+oc logs -c tinyapp -f pod2
 
-
+oc create -f demo-4/istio-rules-2.yml
