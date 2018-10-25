@@ -13,4 +13,22 @@ spec:
       protocol: HTTP
     hosts:
     - "*"
-
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: tinyapp
+spec:
+  host: "*"
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+  subsets:
+  - name: v1
+    labels:
+      app: tinyapp
+      version: v1
+  - name: v2
+    labels:
+      app: tinyapp
+      version: v2
