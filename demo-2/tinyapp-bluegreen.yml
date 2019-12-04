@@ -158,11 +158,11 @@ metadata:
 spec:
   alternateBackends:
   - name: tinyapp-green
-    weight: "0"
+    weight: 0
   to:
     kind: Service
     name: tinyapp-blue
-    weight: "100"
+    weight: 100
 ---
 apiVersion: v1
 kind: Route
